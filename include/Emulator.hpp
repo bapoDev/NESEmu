@@ -92,6 +92,10 @@ public:
 				CpuHalted = true;
 				break;
 
+			case 0xEA: // NOP
+				cycles = 2;
+				break;
+
 			/* 
 			 * 	Load Instructions 
 			 */
@@ -334,7 +338,7 @@ public:
 				break;
 
 			/*
-			 * Stack operations
+			 * Stack Instructions
 			 */
 
 			case 0x48: // PHA
@@ -348,6 +352,19 @@ public:
 				flag_Negative = A >= 0x80;
 				cycles = 4;
 				break;
+
+			case 0x9A: // TXS - Transfer X to Stack Pointer
+				stackPointer = X;
+				cycles = 2;
+				break;
+
+			case 0xBA: // TSX - Transfer Stack Pointer to X
+				X = stackPointer;
+				flag_Zero = X == 0;
+				flag_Negative = X >= 0x80;
+				cycles = 2;
+				break;
+
 
 			/*
 			 * Subroutine operations
@@ -370,6 +387,74 @@ public:
 				ProgramCounter++;
 				cycles = 6;
 				break;
+
+			case 0x4C: // JMP
+				addr_low = read(ProgramCounter);
+				ProgramCounter++;
+				addr_high = read(ProgramCounter);
+				ProgramCounter = static_cast<uint16_t>(addr_high * 256 + addr_low);
+				cycles = 3;
+				break;
+
+			/*
+			 * Register Instructions
+			 */
+
+			case 0xE8: // INX - Increment X
+				X++;
+				flag_Zero = X == 0;
+				flag_Negative = X >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0xC8: // INY - Increment Y
+				Y++;
+				flag_Zero = Y == 0;
+				flag_Negative = Y >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0xCA: // DEX - Decrement X
+				X--;
+				flag_Zero = X == 0;
+				flag_Negative = X >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0x88: // DEY - Decrement Y
+				Y--;
+				flag_Zero = Y == 0;
+				flag_Negative = Y >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0xAA: // TAX - Transfer A to X
+				X = A;
+				flag_Zero = X == 0;
+				flag_Negative = X >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0x8A: // TXA - Transfer X to A
+				A = X;
+				flag_Zero = A == 0;
+				flag_Negative = A >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0xA8: // TAY - Transfer A to Y
+				Y = A;
+				flag_Zero = Y == 0;
+				flag_Negative = Y >= 0x80;
+				cycles = 2;
+				break;
+
+			case 0x98: // TYA - Transfer Y to A
+				A = Y;
+				flag_Zero = A == 0;
+				flag_Negative = A >= 0x80;
+				cycles = 2;
+				break;
 				
 			default:
 				std::cout << "Unknown opcode 0x" << std::hex << static_cast<unsigned int>(opcode)
@@ -377,7 +462,6 @@ public:
 				CpuHalted = true;
 				break;
 		}
-		std::cout << "Program Counter: " << ProgramCounter << std::endl;
 	}
 
 private:

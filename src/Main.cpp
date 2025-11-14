@@ -75,7 +75,12 @@ public:
 		}
 	}
 
-
+	// Called on the main thread when an open-file path arrives
+	void handleFileOpen(const char* path) {
+		if (!path) return;
+		SDL_Log("Processing ROM on main thread: %s", path);
+		emu.reset(path);
+	}
 
 	static void emu_reset_callback(void *userdata, const char* const* filelist, int filters) {
 		if (!filelist) {
@@ -83,15 +88,29 @@ public:
 			return;
 		} else if (!*filelist) {
 			SDL_Log("The user did not select any file.");
-			SDL_Log("Most likely, the dialog was canceled.");
 			return;
 		}
 
+		// For each selected file, duplicate the C-string and push an SDL user event.
 		while (*filelist) {
-			SDL_Log("Full path to selected file: '%s'", *filelist);
-			filelist++;
+			char* dup = SDL_strdup(*filelist); // allocate with SDL_strdup so we can SDL_free later
+			if (!dup) {
+				SDL_Log("Failed to duplicate path");
+			} else {
+				SDL_Event ev;
+				SDL_memset(&ev, 0, sizeof(ev));
+				ev.type = SDL_EVENT_USER;
+				ev.user.code = 1;            // application-defined code
+				ev.user.data1 = dup;        // pass the duplicated string
+				if (SDL_PushEvent(&ev) < 0) {
+					SDL_free(dup);
+					SDL_Log("SDL_PushEvent failed: %s", SDL_GetError());
+				}
+			}
+			++filelist;
 		}
 	}
+
 
 	std::function<void()> onLoadROM = [] {};
 	std::function<void()> onReset = [] {};
@@ -99,11 +118,12 @@ public:
 
 private:
 	SDL_Renderer* renderer;
+	Emulator emu;
 };
 
 int main(int argc, char** argv) {
 
-	Emulator emu;
+
 
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		std::cerr << "SDL init failed: " << SDL_GetError() << std::endl;
@@ -133,16 +153,21 @@ int main(int argc, char** argv) {
 			"NES Rom", "nes"
 		};
 
-		SDL_ShowOpenFileDialog(EmulatorUI::emu_reset_callback, nullptr, window, &filter, 1, "~/", false);
+		SDL_ShowOpenFileDialog(EmulatorUI::emu_reset_callback, &ui, window, &filter, 1, "~/", false);
 	};
 
 	while (running) {
 		SDL_Event e;
 		while (SDL_PollEvent(&e)) {
-			if (e.type == SDL_EVENT_QUIT)
+			if (e.type == SDL_EVENT_QUIT) {
 				running = false;
-			else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+			} else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 				ui.handleClick(e.button.x, e.button.y);
+			} else if (e.type == SDL_EVENT_USER && e.user.code == 1) {
+				char* path = static_cast<char*>(e.user.data1);
+				ui.handleFileOpen(path);
+				SDL_free(path); // free the SDL_strdup'd buffer
+			}
 		}
 
 		int winW, winH;

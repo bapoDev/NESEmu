@@ -1,3 +1,4 @@
 __PatreonRoms
 .idea
 cmake-build-*
+build/

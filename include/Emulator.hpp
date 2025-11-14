@@ -1,9 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdio>
 #include <iostream>
 #include <fstream>
-#include <cstdint>
 #include <stdexcept>
 
 class Emulator {
@@ -39,18 +37,19 @@ public:
 		uint8_t PCH = read(0xFFFD);
 
 		ProgramCounter = static_cast<uint16_t>((static_cast<uint16_t>(PCH) << 8) | PCL);
+		stackPointer = 0xFD;
 
 		flag_InterruptDisable = true;
 
 		run();
 	}
 
-	uint8_t read(uint16_t addr) {
+	uint8_t read(const uint16_t addr) const {
 		if (addr <= 0x1FFF) {
 			return RAM[addr & 0x07FF];
 		}
 		if (addr >= 0x8000) {
-			uint32_t romIndex = static_cast<uint32_t>(addr - 0x8000);
+			const auto romIndex = static_cast<uint32_t>(addr - 0x8000);
 			if (romIndex < ROM.size())
 				return ROM[romIndex];
 			return 0;
@@ -60,6 +59,16 @@ public:
 
 	void write(uint16_t addr, uint8_t value) {
 		RAM[addr & 0x07FF] = value;
+	}
+
+	void push(uint8_t value) {
+		write( static_cast<uint16_t>(0x100 + stackPointer), value);
+		stackPointer--;
+	}
+
+	uint8_t pull() {
+		stackPointer++;
+		return read(static_cast<uint16_t>(0x100 + stackPointer));
 	}
 
 	void run() {
@@ -107,7 +116,7 @@ public:
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				A = read((uint16_t)(addr_high * 256 + addr_low));
+				A = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
 				flag_Zero = A == 0;
 				flag_Negative = A > 127;
 				cycles = 4;
@@ -133,7 +142,7 @@ public:
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				X = read((uint16_t)(addr_high * 256 + addr_low));
+				X = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
 				flag_Zero = X == 0;
 				flag_Negative = X > 127;
 				cycles = 4;
@@ -159,7 +168,7 @@ public:
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				Y = read((uint16_t)(addr_high * 256 + addr_low));
+				Y = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
 				flag_Zero = Y == 0;
 				flag_Negative = Y > 127;
 				cycles = 4;
@@ -175,40 +184,45 @@ public:
 				write(addr, A);
 				cycles = 3;
 				break;
+
 			case 0x8D: // STA Absolute
 				addr_low = read(ProgramCounter);
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				write((uint16_t)(addr_high * 256 + addr_low), A);
+				write(static_cast<uint16_t>(addr_high * 256 + addr_low), A);
 				cycles = 4;
 				break;
+
 			case 0x86: // STX Zero Page
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				write(addr, X);
 				cycles = 3;
 				break;
+
 			case 0x8E: // STX Absolute
 				addr_low = read(ProgramCounter);
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				write((uint16_t)(addr_high * 256 + addr_low), X);
+				write(static_cast<uint16_t>(addr_high * 256 + addr_low), X);
 				cycles = 4;
 				break;
+
 			case 0x84: // STY Zero Page
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				write(addr, Y);
 				cycles = 3;
 				break;
+
 			case 0x8C: // STY Absolute
 				addr_low = read(ProgramCounter);
 				ProgramCounter++;
 				addr_high = read(ProgramCounter);
 				ProgramCounter++;
-				write((uint16_t)(addr_high * 256 + addr_low), Y);
+				write(static_cast<uint16_t>(addr_high * 256 + addr_low), Y);
 				cycles = 4;
 				break;
 
@@ -219,110 +233,157 @@ public:
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (!flag_Negative) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0x30: // BMI (Branch on MInus)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (flag_Negative) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0x50: // BVC (Branch on oVerflow Clear)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (!flag_Overflow) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0x70: // BVS (Branch on oVerflow Set)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (flag_Overflow) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0x90: // BCC (Branch on Carry Clear)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (!flag_Carry) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0xB0: // BCS (Branch on Carry Set)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (flag_Carry) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0xD0: // BNE (Branch on Not Equal)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (!flag_Zero) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
+
 			case 0xF0: // BEQ (Branch on EQual)
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				if (flag_Zero) {
-					int8_t signedVal = (int8_t)addr;
-					ProgramCounter = (uint16_t)(ProgramCounter + signedVal);
+					const auto signedVal = static_cast<int8_t>(addr);
+					ProgramCounter = static_cast<uint16_t>(ProgramCounter + signedVal);
 					cycles = 3;
 				}
 				else {
 					cycles = 2;
 				}
 				break;
-			
+
+			/*
+			 * Stack operations
+			 */
+
+			case 0x48: // PHA
+				push(A);
+				cycles = 3;
+				break;
+
+			case 0x68: // PLA
+				A = pull();
+				flag_Zero = A == 0;
+				flag_Negative = A >= 0x80;
+				cycles = 4;
+				break;
+
+			/*
+			 * Subroutine operations
+			 */
+
+			case 0x20: // JSR
+				addr_low = read(ProgramCounter);
+				ProgramCounter++;
+				addr_high = read(ProgramCounter);
+				push(static_cast<uint8_t>(ProgramCounter/256));
+				push(static_cast<uint8_t>(ProgramCounter));
+				ProgramCounter = static_cast<uint16_t>(addr_high * 256 + addr_low);
+				cycles = 6;
+				break;
+
+			case 0x60: // RTS
+				addr_low = pull();
+				addr_high = pull();
+				ProgramCounter = static_cast<uint16_t>(addr_high * 256 + addr_low);
+				ProgramCounter++;
+				cycles = 6;
+				break;
+				
 			default:
 				std::cout << "Unknown opcode 0x" << std::hex << static_cast<unsigned int>(opcode)
 				          << ", bailing out, you're on your own!" << std::endl;
 				CpuHalted = true;
 				break;
 		}
+		std::cout << "Program Counter: " << ProgramCounter << std::endl;
 	}
 
 private:
 	uint16_t ProgramCounter;
 	bool CpuHalted = false;
+	uint16_t stackPointer{};
 
 	uint8_t A;
 	uint8_t X;

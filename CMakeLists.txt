@@ -18,5 +18,5 @@ target_sources(nesemu
         BASE_DIRS
             include
         FILES
-            include/Emulator.h
+            include/Emulator.hpp
 )

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <functional>
-#include "Emulator.h"
+#include "Emulator.hpp"
 
 constexpr int NES_WIDTH = 256;
 constexpr int NES_HEIGHT = 240;
@@ -52,9 +52,11 @@ public:
 
 		SDL_FRect loadBtn{ 10,4,80,24 };
 		SDL_FRect resetBtn{ 100,4,80,24 };
+		SDL_FRect debugBtn {190, 4, 80, 24};
 		SDL_SetRenderDrawColor(renderer, 80, 80, 220, 255);
 		SDL_RenderFillRect(renderer, &loadBtn);
 		SDL_RenderFillRect(renderer, &resetBtn);
+		SDL_RenderFillRect(renderer, &debugBtn);
 	}
 
 	void handleClick(int x, int y) {
@@ -67,6 +69,9 @@ public:
 		else if (x >= 100 && x <= 180) {
 			std::cout << "[UI] Reset clicked" << std::endl;
 			onReset();
+		} else if (x >= 190 && x <= 270) {
+			std::cout << "[Debug] Debug info in console" << std::endl;
+			onDebug();
 		}
 	}
 
@@ -90,6 +95,7 @@ public:
 
 	std::function<void()> onLoadROM = [] {};
 	std::function<void()> onReset = [] {};
+	std::function<void()> onDebug = [] {};
 
 private:
 	SDL_Renderer* renderer;
@@ -118,7 +124,9 @@ int main(int argc, char** argv) {
 		std::cout << "[Emulator] TODO" << std::endl;
 	};
 
-
+	ui.onDebug = [&]() {
+		std::cout << "[Debug] Current " << std::endl;
+	};
 
 	ui.onReset = [&]() {
 		constexpr SDL_DialogFileFilter filter = {

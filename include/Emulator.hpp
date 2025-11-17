@@ -570,6 +570,46 @@ public:
                 cycles = 6;
                 break;
 
+            /*
+             * Increment / Decrement
+             */
+
+            case 0xE6: // INC Zero Page - Increment
+                readZeroPage(&addr);
+                value = read(addr);
+                value++;
+                write(addr, value);
+                flagZN(&value); // WARNING : MUST TEST
+                cycles = 5;
+                break;
+
+            case 0xEE: // INC Absolute
+                readAbsolute(&addr_abs);
+                value = read(addr_abs);
+                value++;
+                write(addr_abs, value);
+                flagZN(&value);
+                cycles = 6;
+                break;
+
+            case 0xC6: // DEC Zero Page - Decrement
+                readZeroPage(&addr);
+                value = read(addr);
+                value--;
+                write(addr, value);
+                flagZN(&value); // WARNING : MUST TEST
+                cycles = 5;
+                break;
+
+            case 0xCE: // DEC Absolute
+                readAbsolute(&addr_abs);
+                value = read(addr_abs);
+                value--;
+                write(addr_abs, value);
+                flagZN(&value);
+                cycles = 6;
+                break;
+
 
 			/*
 			 * Stack Processor Flags

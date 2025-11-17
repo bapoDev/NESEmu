@@ -102,6 +102,8 @@ public:
 		uint8_t addr_low;
 		uint8_t addr_high;
 		uint16_t addr_abs;
+		uint8_t value;
+		bool oldCarry;
 
 		uint8_t opcode = read(ProgramCounter);
 		ProgramCounter++;
@@ -439,7 +441,7 @@ public:
 				break;
 
 			case 0x0A: // ASL - Arithmetic Shift Left
-			    flag_Carry = A > 127;
+			    flag_Carry = A >= 0x80;
 				A <<= 1;
 				flag_Zero = A == 0;
 				flag_Negative = A > 127;
@@ -448,7 +450,7 @@ public:
 			case 0x0E: // ASL Absolute
 			    readAbsolute(&addr_abs);
                 addr = read(addr_abs);
-                flag_Carry = addr > 127;
+                flag_Carry = addr >= 0x80;
                 addr <<= 1;
                 flag_Zero = addr == 0;
                 flag_Negative = addr > 127;
@@ -458,7 +460,7 @@ public:
             case 0x06: // ASL Zero Page
                 readZeroPage(&addr_low); // We use low and high to have two different addresses
                 addr_high = read(addr_low);
-                flag_Carry = addr > 127;
+                flag_Carry = addr >= 0x80;
                 addr_high <<= 1;
                 flag_Zero = addr == 0;
                 flag_Negative = addr > 127;
@@ -466,6 +468,42 @@ public:
                 cycles = 6;
                 break;
 
+            case 0x2A: // ROL - ROtate Left (Accumulator)
+                oldCarry = flag_Carry;
+                flag_Carry = A >= 0x80;
+                A <<= 1;
+                if (oldCarry) {
+                    A |= 1;
+                }
+                flagZN(&A);
+                cycles = 2;
+                break;
+            case 0x26: // ROL Zero Page
+                readZeroPage(&addr);
+                value = read(addr);
+                oldCarry = flag_Carry;
+                flag_Carry = value >= 0x80;
+                value <<= 1;
+                if (oldCarry) {
+                    value |= 1;
+                }
+                write(addr, value);
+                flagZN(&A);
+                cycles = 6;
+                break;
+            case 0x2E: // ROL Absolute
+                readAbsolute(&addr_abs);
+                value = read(addr_abs);
+                oldCarry = flag_Carry;
+                flag_Carry = value >= 0x80;
+                value <<= 1;
+                if (oldCarry) {
+                    value |= 1;
+                }
+                write(addr_abs, value);
+                flagZN(&A);
+                cycles = 6;
+                break;
 
 
 			/*

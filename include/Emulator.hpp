@@ -505,6 +505,71 @@ public:
                 cycles = 6;
                 break;
 
+            case 0x4A: // LSR - Logical Shift Right
+			    flag_Carry = !(A % 2);
+				A >>= 1;
+				flag_Zero = A == 0;
+				flag_Negative = A > 127;
+				cycles = 2;
+				break;
+			case 0x4E: // LSR Absolute
+			    readAbsolute(&addr_abs);
+                addr = read(addr_abs);
+                flag_Carry = !(addr % 2);
+                addr >>= 1;
+                flag_Zero = addr == 0;
+                flag_Negative = addr > 127;
+                write(addr_abs, addr);
+                cycles = 6;
+                break;
+            case 0x46: // LSR Zero Page
+                readZeroPage(&addr_low); // We use low and high to have two different addresses
+                addr_high = read(addr_low);
+                flag_Carry = !(addr % 2);
+                addr_high >>= 1;
+                flag_Zero = addr == 0;
+                flag_Negative = addr > 127;
+                write(addr_low, addr_high);
+                cycles = 6;
+                break;
+
+            case 0x6A: // ROR - ROtate Right (Accumulator)
+                oldCarry = flag_Carry;
+                flag_Carry = !(A % 2);
+                A >>= 1;
+                if (oldCarry) {
+                    A |= 0x80;
+                }
+                flagZN(&A);
+                cycles = 2;
+                break;
+            case 0x66: // ROR Zero Page
+                readZeroPage(&addr);
+                value = read(addr);
+                oldCarry = flag_Carry;
+                flag_Carry = !(value % 2);
+                value >>= 1;
+                if (oldCarry) {
+                    value |= 0x80;
+                }
+                write(addr, value);
+                flagZN(&A);
+                cycles = 6;
+                break;
+            case 0x6E: // ROR Absolute
+                readAbsolute(&addr_abs);
+                value = read(addr_abs);
+                oldCarry = flag_Carry;
+                flag_Carry = !(value % 2);
+                value >>= 1;
+                if (oldCarry) {
+                    value |= 0x80;
+                }
+                write(addr_abs, value);
+                flagZN(&A);
+                cycles = 6;
+                break;
+
 
 			/*
 			 * Stack Processor Flags

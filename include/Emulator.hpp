@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -77,12 +78,30 @@ public:
 		}
 	}
 
+	void readAbsolute(uint16_t *addr) {
+		*addr = read(ProgramCounter);
+		ProgramCounter++;
+		*addr = static_cast<uint16_t>(read(ProgramCounter) << 8 | *addr);
+		ProgramCounter++;
+	}
+
+	void readZeroPage(uint8_t *addr) {
+	    *addr = read(ProgramCounter);
+		ProgramCounter++;
+	}
+
+	void flagZN(uint8_t *reg) {
+        flag_Zero = *reg == 0;
+        flag_Negative = *reg > 127;
+	}
+
 	void emulate_cpu() {
 		int cycles = 0;
 
 		uint8_t addr;
 		uint8_t addr_low;
 		uint8_t addr_high;
+		uint16_t addr_abs;
 
 		uint8_t opcode = read(ProgramCounter);
 		ProgramCounter++;
@@ -96,14 +115,13 @@ public:
 				cycles = 2;
 				break;
 
-			/* 
-			 * 	Load Instructions 
+			/*
+			 * 	Load Instructions
 			 */
 
 			case 0xA9: // LDA Immediate
 				A = read(ProgramCounter);
-				flag_Zero = A == 0;
-				flag_Negative = A > 127;
+				flagZN(&A);
 				ProgramCounter++;
 				cycles = 2;
 				break;
@@ -111,25 +129,19 @@ public:
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				A = read(addr);
-				flag_Zero = A == 0;
-				flag_Negative = A > 127;
+				flagZN(&A);
 				cycles = 3;
 				break;
 			case 0xAD: // LDA Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
-				A = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
-				flag_Zero = A == 0;
-				flag_Negative = A > 127;
+			    readAbsolute(&addr_abs);
+				A = read(addr_abs);
+				flagZN(&A);
 				cycles = 4;
 				break;
 
 			case 0xA2: // LDX Immediate
 				X = read(ProgramCounter);
-				flag_Zero = X == 0;
-				flag_Negative = X > 127;
+				flagZN(&X);
 				ProgramCounter++;
 				cycles = 2;
 				break;
@@ -137,25 +149,19 @@ public:
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				X = read(addr);
-				flag_Zero = X == 0;
-				flag_Negative = X > 127;
+				flagZN(&X);
 				cycles = 3;
 				break;
 			case 0xAE: // LDX Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
+			    readAbsolute(&addr_abs);
 				X = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
-				flag_Zero = X == 0;
-				flag_Negative = X > 127;
+				flagZN(&X);
 				cycles = 4;
 				break;
 
 			case 0xA0: // LDY Immediate
 				Y = read(ProgramCounter);
-				flag_Zero = Y == 0;
-				flag_Negative = Y > 127;
+				flagZN(&Y);
 				ProgramCounter++;
 				cycles = 2;
 				break;
@@ -163,23 +169,18 @@ public:
 				addr = read(ProgramCounter);
 				ProgramCounter++;
 				Y = read(addr);
-				flag_Zero = Y == 0;
-				flag_Negative = Y > 127;
+				flagZN(&Y);
 				cycles = 3;
 				break;
 			case 0xAC: // LDY Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
+               	readAbsolute(&addr_abs);
 				Y = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
-				flag_Zero = Y == 0;
-				flag_Negative = Y > 127;
+				flagZN(&Y);
 				cycles = 4;
 				break;
 
-			/* 
-			 * Store Instructions 
+			/*
+			 * Store Instructions
 			 */
 
 			case 0x85: // STA Zero Page
@@ -188,13 +189,9 @@ public:
 				write(addr, A);
 				cycles = 3;
 				break;
-
 			case 0x8D: // STA Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
-				write(static_cast<uint16_t>(addr_high * 256 + addr_low), A);
+			    readAbsolute(&addr_abs);
+				write(addr_abs, A);
 				cycles = 4;
 				break;
 
@@ -204,13 +201,9 @@ public:
 				write(addr, X);
 				cycles = 3;
 				break;
-
 			case 0x8E: // STX Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
-				write(static_cast<uint16_t>(addr_high * 256 + addr_low), X);
+			    readAbsolute(&addr_abs);
+				write(addr_abs, X);
 				cycles = 4;
 				break;
 
@@ -220,13 +213,9 @@ public:
 				write(addr, Y);
 				cycles = 3;
 				break;
-
 			case 0x8C: // STY Absolute
-				addr_low = read(ProgramCounter);
-				ProgramCounter++;
-				addr_high = read(ProgramCounter);
-				ProgramCounter++;
-				write(static_cast<uint16_t>(addr_high * 256 + addr_low), Y);
+			    readAbsolute(&addr_abs);
+				write(addr_abs, Y);
 				cycles = 4;
 				break;
 
@@ -360,8 +349,7 @@ public:
 
 			case 0xBA: // TSX - Transfer Stack Pointer to X
 				X = stackPointer;
-				flag_Zero = X == 0;
-				flag_Negative = X >= 0x80;
+				flagZN(&X);
 				cycles = 2;
 				break;
 
@@ -402,36 +390,31 @@ public:
 
 			case 0xE8: // INX - Increment X
 				X++;
-				flag_Zero = X == 0;
-				flag_Negative = X >= 0x80;
+				flagZN(&X);
 				cycles = 2;
 				break;
 
 			case 0xC8: // INY - Increment Y
 				Y++;
-				flag_Zero = Y == 0;
-				flag_Negative = Y >= 0x80;
+				flagZN(&Y);
 				cycles = 2;
 				break;
 
 			case 0xCA: // DEX - Decrement X
 				X--;
-				flag_Zero = X == 0;
-				flag_Negative = X >= 0x80;
+				flagZN(&X);
 				cycles = 2;
 				break;
 
 			case 0x88: // DEY - Decrement Y
 				Y--;
-				flag_Zero = Y == 0;
-				flag_Negative = Y >= 0x80;
+				flagZN(&Y);
 				cycles = 2;
 				break;
 
 			case 0xAA: // TAX - Transfer A to X
 				X = A;
-				flag_Zero = X == 0;
-				flag_Negative = X >= 0x80;
+				flagZN(&X);
 				cycles = 2;
 				break;
 
@@ -444,8 +427,7 @@ public:
 
 			case 0xA8: // TAY - Transfer A to Y
 				Y = A;
-				flag_Zero = Y == 0;
-				flag_Negative = Y >= 0x80;
+				flagZN(&Y);
 				cycles = 2;
 				break;
 
@@ -455,7 +437,66 @@ public:
 				flag_Negative = A >= 0x80;
 				cycles = 2;
 				break;
-				
+
+			case 0x0A: // ASL - Arithmetic Shift Left
+			    flag_Carry = A > 127;
+				A <<= 1;
+				flag_Zero = A == 0;
+				flag_Negative = A > 127;
+				cycles = 2;
+				break;
+			case 0x0E: // ASL Absolute
+			    readAbsolute(&addr_abs);
+                addr = read(addr_abs);
+                flag_Carry = addr > 127;
+                addr <<= 1;
+                flag_Zero = addr == 0;
+                flag_Negative = addr > 127;
+                write(addr_abs, addr);
+                cycles = 6;
+                break;
+            case 0x06: // ASL Zero Page
+                readZeroPage(&addr_low); // We use low and high to have two different addresses
+                addr_high = read(addr_low);
+                flag_Carry = addr > 127;
+                addr_high <<= 1;
+                flag_Zero = addr == 0;
+                flag_Negative = addr > 127;
+                write(addr_low, addr_high);
+                cycles = 6;
+                break;
+
+
+
+			/*
+			 * Stack Processor Flags
+			 */
+
+			case 0x08: // PHP - Push Processor Flags
+			    addr = 0;
+				addr += static_cast<uint8_t>(flag_Carry ? 1 : 0);
+				addr += static_cast<uint8_t>(flag_Zero ? 2 : 0);
+				addr += static_cast<uint8_t>(flag_InterruptDisable ? 4 : 0);
+				addr += static_cast<uint8_t>(flag_Decimal ? 8 : 0);
+				addr += 0x10;
+				addr += 0x20;
+				addr += static_cast<uint8_t>(flag_Overflow ? 0x40 : 0);
+				addr += static_cast<uint8_t>(flag_Negative ? 0x80 : 0);
+				push(addr);
+				cycles = 3;
+				break;
+
+			case 0x28: // PLP - Pull Processor Flags
+			    addr = pull();
+				flag_Carry = (addr & 1) != 0;
+				flag_Zero = (addr & 2) != 0;
+				flag_InterruptDisable = (addr & 4) != 0;
+				flag_Decimal = (addr & 8) != 0;
+				flag_Overflow = (addr & 0x40) != 0;
+				flag_Negative = (addr & 0x80) != 0;
+				cycles = 3;
+				break;
+
 			default:
 				std::cout << "Unknown opcode 0x" << std::hex << static_cast<unsigned int>(opcode)
 				          << ", bailing out, you're on your own!" << std::endl;
@@ -469,9 +510,9 @@ private:
 	bool CpuHalted = false;
 	uint16_t stackPointer{};
 
-	uint8_t A;
-	uint8_t X;
-	uint8_t Y;
+	uint8_t A; // Accumulator
+	uint8_t X; // X register
+	uint8_t Y; // Y register
 
 	std::vector<uint8_t> RAM;
 	std::vector<uint8_t> INesHeader;

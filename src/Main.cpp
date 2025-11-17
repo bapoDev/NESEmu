@@ -52,7 +52,7 @@ public:
 
 		SDL_FRect loadBtn{ 10,4,80,24 };
 		SDL_FRect resetBtn{ 100,4,80,24 };
-		SDL_FRect debugBtn {190, 4, 80, 24};
+		SDL_FRect debugBtn { 190, 4, 80, 24 };
 		SDL_SetRenderDrawColor(renderer, 80, 80, 220, 255);
 		SDL_RenderFillRect(renderer, &loadBtn);
 		SDL_RenderFillRect(renderer, &resetBtn);

@@ -102,7 +102,7 @@ public:
 				ev.type = SDL_EVENT_USER;
 				ev.user.code = 1;            // application-defined code
 				ev.user.data1 = dup;        // pass the duplicated string
-				if (SDL_PushEvent(&ev) < 0) {
+				if (!SDL_PushEvent(&ev)) {
 					SDL_free(dup);
 					SDL_Log("SDL_PushEvent failed: %s", SDL_GetError());
 				}

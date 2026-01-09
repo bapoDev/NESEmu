@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <sys/types.h>
 #include <vector>
 
 class Emulator {
@@ -718,6 +719,68 @@ public:
       cycles = 2;
       break;
 
+    case 0xC9: // CMP Immediate
+      value = read(ProgramCounter);
+      ProgramCounter++;
+      opCMP(value, A);
+      cycles = 2;
+      break;
+
+    case 0xE0: // CPX Immediate
+      value = read(ProgramCounter);
+      ProgramCounter++;
+      opCMP(value, X);
+      cycles = 2;
+      break;
+
+    case 0xC0: // CPY Immediate
+      value = read(ProgramCounter);
+      ProgramCounter++;
+      opCMP(value, Y);
+      cycles = 2;
+      break;
+
+    case 0x24: // BIT (Zero page ??)
+      value = read(ProgramCounter);
+      ProgramCounter++;
+      opBIT(A);
+      cycles = 3;
+      break;
+
+    case 0x00: // BRK
+      ProgramCounter++;
+      push(static_cast<uint8_t>(ProgramCounter >> 8));
+      push(static_cast<uint8_t>(ProgramCounter));
+      addr = 0;
+      addr += static_cast<uint8_t>(flag_Carry ? 1 : 0);
+      addr += static_cast<uint8_t>(flag_Zero ? 2 : 0);
+      addr += static_cast<uint8_t>(flag_InterruptDisable ? 4 : 0);
+      addr += static_cast<uint8_t>(flag_Decimal ? 8 : 0);
+      addr += 0x10;
+      addr += 0x20;
+      addr += static_cast<uint8_t>(flag_Overflow ? 0x40 : 0);
+      addr += static_cast<uint8_t>(flag_Negative ? 0x80 : 0);
+      push(addr);
+      addr_low = read(0xFFFE);
+      addr_high = read(0xFFFF);
+      ProgramCounter = static_cast<uint16_t>((addr_high * 0x100) + addr_low);
+      cycles = 7;
+      break;
+
+    case 0x40: // RTI
+      addr = pull();
+      flag_Carry = (addr & 1) != 0;
+      flag_Zero = (addr & 2) != 0;
+      flag_InterruptDisable = (addr & 4) != 0;
+      flag_Decimal = (addr & 8) != 0;
+      flag_Overflow = (addr & 0x40) != 0;
+      flag_Negative = (addr & 0x80) != 0;
+      addr_low = pull();
+      addr_high = pull();
+      ProgramCounter = static_cast<uint16_t>((addr_high * 0x100) + addr_low);
+      cycles = 6;
+      break;
+
     default:
       std::cout << "Unknown opcode 0x" << std::hex
                 << static_cast<unsigned int>(opcode)
@@ -749,6 +812,18 @@ public:
     A = sum;
 
     flagZN(&A);
+  }
+
+  void opCMP(uint8_t input, uint8_t reg) {
+    flag_Carry = input < reg;
+    flag_Zero = input == reg;
+    flag_Negative = static_cast<uint8_t>(reg - input) > 127;
+  }
+
+  void opBIT(uint8_t input) {
+    flag_Zero = (A & input) == 0;
+    flag_Negative = (input & 0x80) != 0;
+    flag_Overflow = (input & 0x40) != 0;
   }
 
 private:

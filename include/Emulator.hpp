@@ -1,10 +1,16 @@
 #pragma once
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
+#include <format>
 #include <iostream>
+#include <ostream>
 #include <stdexcept>
 #include <sys/types.h>
 #include <vector>
+
+#include "Tracelogger.cpp"
 
 class Emulator {
 public:
@@ -781,6 +787,24 @@ public:
       cycles = 6;
       break;
 
+    case 0x38: // SEC - SEt Carry
+      flag_Carry = 1;
+      ProgramCounter++;
+      cycles = 2;
+      break;
+
+    case 0xF8: // SED - SEt Decimal
+      flag_Decimal = 1;
+      ProgramCounter++;
+      cycles = 2;
+      break;
+
+    case 0x78: // SEI - SEt Interrupt Disable
+      flag_InterruptDisable = 1;
+      ProgramCounter++;
+      cycles = 2;
+      break;
+
     default:
       std::cout << "Unknown opcode 0x" << std::hex
                 << static_cast<unsigned int>(opcode)
@@ -788,6 +812,8 @@ public:
       CpuHalted = true;
       break;
     }
+
+    tracelog(opcode);
   }
 
   void opADC(uint8_t input) {
@@ -824,6 +850,25 @@ public:
     flag_Zero = (A & input) == 0;
     flag_Negative = (input & 0x80) != 0;
     flag_Overflow = (input & 0x40) != 0;
+  }
+
+  void tracelog(uint8_t opcode) {
+    std::string line = std::format("{:04X} \t {:02X} \t {:<4} \t A:{:02X} X:{:02X} Y:{:02X}\t {}{}{}{}{}{}{} \n",
+      ProgramCounter,
+      opcode,
+      opCodesArr[opcode],
+      A,
+      X,
+      Y,
+      (flag_Negative ? "N" : "n"),
+      (flag_Overflow ? "V" : "v"),
+      "--",
+      (flag_Decimal ? "D" : "d"),
+      (flag_InterruptDisable ? "I" : "i"),
+      (flag_Zero ? "Z" : "z"),
+      (flag_Carry ? "C" : "c")
+    );
+    std::cout << line;
   }
 
 private:

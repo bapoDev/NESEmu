@@ -2,12 +2,9 @@
 
 ## CPU : Remaining instructions (as per nesdev.org)
 
-Overall 49/56
+Overall 52/56
 
 - CLC
 - CLD
 - CLV
 - CLI
-- SEC
-- SED
-- SEI

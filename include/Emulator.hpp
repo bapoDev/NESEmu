@@ -91,7 +91,7 @@ class Emulator {
         *addr = static_cast<uint16_t>(read(ProgramCounter) << 8 | *addr);
         ProgramCounter++;
     }
-    
+
     void readAbsoluteIndexed(uint16_t *addr, uint8_t reg) {
         *addr = read(ProgramCounter);
         ProgramCounter++;
@@ -435,6 +435,14 @@ class Emulator {
             cycles = 3;
             break;
 
+        case 0x6C: // JMP - Indirect
+        	addr_low = read(ProgramCounter);
+        	ProgramCounter++;
+        	addr_high = read(ProgramCounter);
+        	ProgramCounter = static_cast<uint16_t>(read(addr_high) * 256 + read(addr_low));
+         	cycles = 5;
+          	break;
+
             /*
              * Register Instructions
              */
@@ -688,7 +696,7 @@ class Emulator {
             flagZN(&value);
             cycles = 6;
             break;
-                
+
         case 0xFE: // INC Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
@@ -715,7 +723,7 @@ class Emulator {
             flagZN(&value);
             cycles = 6;
             break;
-                
+
         case 0xDE: // DEC Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
@@ -853,7 +861,7 @@ class Emulator {
             flagZN(&A);
             cycles = 4;
             break;
-                
+
         case 0x5D: // EOR Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
@@ -869,7 +877,7 @@ class Emulator {
             flagZN(&A);
             cycles = 4;
             break;
-                
+
         case 0x69: // ADC Immediate
             value = read(ProgramCounter);
             ProgramCounter++;
@@ -894,7 +902,7 @@ class Emulator {
             opADC(value);
             cycles = 2;
             break;
-                
+
         case 0xE9: // SBC Immediate
             value = read(ProgramCounter);
             ProgramCounter++;
@@ -926,7 +934,7 @@ class Emulator {
             opCMP(value, A);
             cycles = 2;
             break;
-                
+
         case 0xCD: // CMP Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);
@@ -945,7 +953,7 @@ class Emulator {
             opCMP(value, A);
             cycles = 2;
             break;
-                
+
         case 0xE0: // CPX Immediate
             value = read(ProgramCounter);
             ProgramCounter++;
@@ -966,7 +974,7 @@ class Emulator {
             opBIT(value);
             cycles = 3;
             break;
-                
+
         case 0x2C: // BIT Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);

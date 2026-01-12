@@ -3,3 +3,6 @@ __PatreonRoms
 cmake-build-*
 build/
 .DS_Store
+xcode/
+.cache/
+.clangd

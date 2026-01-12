@@ -125,7 +125,7 @@ class Emulator {
         ProgramCounter++;
 
         switch (opcode) {
-        case 0x02: // HTL
+        case 0x02: // HTL - Unofficial Instruction
             CpuHalted = true;
             break;
 

@@ -2,9 +2,7 @@
 
 ## CPU : Remaining instructions (as per nesdev.org)
 
-Overall 52/56
+Overall 108/151
 
-- CLC
-- CLD
-- CLV
-- CLI
+All CPU instructions are done at least once.
+Indirect and Indexed versions are being done.

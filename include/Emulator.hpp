@@ -439,7 +439,7 @@ class Emulator {
         	addr_low = read(ProgramCounter);
         	ProgramCounter++;
         	addr_high = read(ProgramCounter);
-        	ProgramCounter = static_cast<uint16_t>(read(addr_high) * 256 + read(addr_low));
+        	ProgramCounter = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
          	cycles = 5;
           	break;
 

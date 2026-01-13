@@ -100,9 +100,34 @@ class Emulator {
         *addr += reg;
     }
 
+    void readIndirectIndexed(uint16_t *addr, uint8_t reg) {
+        *addr = read(ProgramCounter);
+        ProgramCounter++;
+        uint8_t temp = static_cast<uint8_t>(*addr);
+        *addr = read(ProgramCounter);
+        temp++;
+        *addr = static_cast<uint16_t>(read(temp) << 8 | *addr);
+        *addr += reg;
+    }
+
+    void readIndexedIndirect(uint16_t *addr, uint8_t reg) {
+        *addr = static_cast<uint8_t>(read(ProgramCounter) + X);
+        ProgramCounter++;
+        uint8_t temp = static_cast<uint8_t>(*addr);
+        *addr = read(temp);
+        temp++;
+        *addr = static_cast<uint16_t>(read(temp) << 8 | *addr);
+    }
+
     void readZeroPage(uint8_t *addr) {
         *addr = read(ProgramCounter);
         ProgramCounter++;
+    }
+
+    void readZeroPageIndexed(uint8_t *addr, uint8_t reg) {
+        *addr = read(ProgramCounter);
+        ProgramCounter++;
+        *addr += reg;
     }
 
     void flagZN(uint8_t *reg) {
@@ -150,6 +175,13 @@ class Emulator {
             flagZN(&A);
             cycles = 3;
             break;
+        case 0xB5: // LDA Zero Page,X
+            read(&addr, X);
+            ProgramCounter++;
+            A = read(addr);
+            flagZN(&A);
+            cycles = 3;
+            break;
         case 0xAD: // LDA Absolute
             readAbsolute(&addr_abs);
             A = read(addr_abs);
@@ -182,6 +214,13 @@ class Emulator {
             flagZN(&X);
             cycles = 3;
             break;
+        case 0xB6: // LDX Zero Page,Y
+            readZeroPageIndexed(&addr, Y);
+            ProgramCounter++;
+            X = read(addr);
+            flagZN(&X);
+            cycles = 3;
+            break;
         case 0xAE: // LDX Absolute
             readAbsolute(&addr_abs);
             X = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
@@ -202,7 +241,14 @@ class Emulator {
             cycles = 2;
             break;
         case 0xA4: // LDY Zero Page
-            addr = read(ProgramCounter);
+            readZeroPage(&addr);
+            ProgramCounter++;
+            Y = read(addr);
+            flagZN(&Y);
+            cycles = 3;
+            break;
+        case 0xB4: // LDY Zero Page,X
+            readZeroPageIndexed(&addr, X);
             ProgramCounter++;
             Y = read(addr);
             flagZN(&Y);
@@ -226,7 +272,15 @@ class Emulator {
              */
 
         case 0x85: // STA Zero Page
-            addr = read(ProgramCounter);
+            readZeroPage(&addr);
+            value = read(addr);
+            ProgramCounter++;
+            write(addr, A);
+            cycles = 3;
+            break;
+        case 0x95: // STA Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
             ProgramCounter++;
             write(addr, A);
             cycles = 3;
@@ -248,7 +302,15 @@ class Emulator {
             break;
 
         case 0x86: // STX Zero Page
-            addr = read(ProgramCounter);
+            readZeroPage(&addr);
+            value = read(addr);
+            ProgramCounter++;
+            write(addr, X);
+            cycles = 3;
+            break;
+        case 0x96: // STX Zero Page,Y
+            readZeroPageIndexed(&addr, Y);
+            value = read(addr);
             ProgramCounter++;
             write(addr, X);
             cycles = 3;
@@ -260,7 +322,15 @@ class Emulator {
             break;
 
         case 0x84: // STY Zero Page
-            addr = read(ProgramCounter);
+            readZeroPage(&addr);
+            value = read(addr);
+            ProgramCounter++;
+            write(addr, Y);
+            cycles = 3;
+            break;
+        case 0x94: // STY Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
             ProgramCounter++;
             write(addr, Y);
             cycles = 3;
@@ -436,12 +506,13 @@ class Emulator {
             break;
 
         case 0x6C: // JMP - Indirect
-        	addr_low = read(ProgramCounter);
-        	ProgramCounter++;
-        	addr_high = read(ProgramCounter);
-        	ProgramCounter = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
-         	cycles = 5;
-          	break;
+            addr_low = read(ProgramCounter);
+            ProgramCounter++;
+            addr_high = read(ProgramCounter);
+            ProgramCounter =
+                read(static_cast<uint16_t>(addr_high * 256 + addr_low));
+            cycles = 5;
+            break;
 
             /*
              * Register Instructions
@@ -524,9 +595,18 @@ class Emulator {
             write(addr_abs, addr);
             cycles = 6;
             break;
-        case 0x06:                   // ASL Zero Page
-            readZeroPage(&addr_low); // We use low and high to have two
-                                     // different addresses
+        case 0x06: // ASL Zero Page
+            readZeroPage(&addr_low);
+            addr_high = read(addr_low);
+            flag_Carry = addr >= 0x80;
+            addr_high <<= 1;
+            flag_Zero = addr == 0;
+            flag_Negative = addr > 127;
+            write(addr_low, addr_high);
+            cycles = 6;
+            break;
+        case 0x16: // ASL Zero Page,X
+            readZeroPageIndexed(&addr_low, X);
             addr_high = read(addr_low);
             flag_Carry = addr >= 0x80;
             addr_high <<= 1;
@@ -548,6 +628,19 @@ class Emulator {
             break;
         case 0x26: // ROL Zero Page
             readZeroPage(&addr);
+            value = read(addr);
+            oldCarry = flag_Carry;
+            flag_Carry = value >= 0x80;
+            value <<= 1;
+            if (oldCarry) {
+                value |= 1;
+            }
+            write(addr, value);
+            flagZN(&A);
+            cycles = 6;
+            break;
+        case 0x36: // ROL Zero Page,X
+            readZeroPageIndexed(&addr, X);
             value = read(addr);
             oldCarry = flag_Carry;
             flag_Carry = value >= 0x80;
@@ -624,6 +717,17 @@ class Emulator {
             write(addr_low, addr_high);
             cycles = 6;
             break;
+        case 0x56:                             // LSR Zero Page,X
+            readZeroPageIndexed(&addr_low, X); // We use low and high to have
+                                               // two different addresses
+            addr_high = read(addr_low);
+            flag_Carry = !(addr % 2);
+            addr_high >>= 1;
+            flag_Zero = addr == 0;
+            flag_Negative = addr > 127;
+            write(addr_low, addr_high);
+            cycles = 6;
+            break;
 
         case 0x6A: // ROR - ROtate Right (Accumulator)
             oldCarry = flag_Carry;
@@ -637,6 +741,19 @@ class Emulator {
             break;
         case 0x66: // ROR Zero Page
             readZeroPage(&addr);
+            value = read(addr);
+            oldCarry = flag_Carry;
+            flag_Carry = !(value % 2);
+            value >>= 1;
+            if (oldCarry) {
+                value |= 0x80;
+            }
+            write(addr, value);
+            flagZN(&A);
+            cycles = 6;
+            break;
+        case 0x76: // ROR Zero Page,X
+            readZeroPageIndexed(&addr, X);
             value = read(addr);
             oldCarry = flag_Carry;
             flag_Carry = !(value % 2);
@@ -688,6 +805,15 @@ class Emulator {
             cycles = 5;
             break;
 
+        case 0xF6: // INC Zero Page,X - Increment
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            value++;
+            write(addr, value);
+            flagZN(&value); // WARNING : MUST TEST
+            cycles = 5;
+            break;
+
         case 0xEE: // INC Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);
@@ -715,6 +841,14 @@ class Emulator {
             cycles = 5;
             break;
 
+        case 0xD6: // DEC Zero Page,X - Decrement
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            value--;
+            write(addr, value);
+            flagZN(&value); // WARNING : MUST TEST
+            cycles = 5;
+            break;
         case 0xCE: // DEC Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);
@@ -777,6 +911,13 @@ class Emulator {
             flagZN(&A);
             cycles = 3;
             break;
+        case 0x15: // ORA Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            A |= value;
+            flagZN(&A);
+            cycles = 3;
+            break;
 
         case 0x0D: // ORA Absolute
             readAbsolute(&addr_abs);
@@ -815,6 +956,13 @@ class Emulator {
             flagZN(&A);
             cycles = 3;
             break;
+        case 0x35: // AND Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            A &= value;
+            flagZN(&A);
+            cycles = 3;
+            break;
 
         case 0x2D: // AND Absolute
             readAbsolute(&addr_abs);
@@ -848,6 +996,14 @@ class Emulator {
 
         case 0x45: // EOR Zero Page
             readZeroPage(&addr);
+            value = read(addr);
+            A ^= value;
+            flagZN(&A);
+            cycles = 3;
+            break;
+
+        case 0x55: // EOR Zero Page
+            readZeroPageIndexed(&addr, X);
             value = read(addr);
             A ^= value;
             flagZN(&A);
@@ -902,6 +1058,20 @@ class Emulator {
             opADC(value);
             cycles = 2;
             break;
+        case 0x65: // ADC Zero Page
+            readZeroPage(&addr);
+            value = read(addr);
+            ProgramCounter++;
+            opADC(value);
+            cycles = 2;
+            break;
+        case 0x75: // ADC Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            ProgramCounter++;
+            opADC(value);
+            cycles = 2;
+            break;
 
         case 0xE9: // SBC Immediate
             value = read(ProgramCounter);
@@ -916,7 +1086,7 @@ class Emulator {
             cycles = 3;
             break;
         case 0xFD: // SBC Absolute,X
-            readAbsoluteIndexed(&addr_abs,X);
+            readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
             opSBC(value);
             cycles = 3;
@@ -927,10 +1097,36 @@ class Emulator {
             opSBC(value);
             cycles = 3;
             break;
+        case 0xE5: // SBC Zero Page
+            readZeroPage(&addr);
+            value = read(addr);
+            opSBC(value);
+            cycles = 3;
+            break;
+        case 0xF5: // SBC Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
+            opSBC(value);
+            cycles = 3;
+            break;
 
         case 0xC9: // CMP Immediate
             value = read(ProgramCounter);
             ProgramCounter++;
+            opCMP(value, A);
+            cycles = 2;
+            break;
+
+        case 0xC5: // CMP Zero Page
+            readZeroPage(&addr);
+            value = read(addr);
+            opCMP(value, A);
+            cycles = 2;
+            break;
+
+        case 0xD5: // CMP Zero Page,X
+            readZeroPageIndexed(&addr, X);
+            value = read(addr);
             opCMP(value, A);
             cycles = 2;
             break;
@@ -960,10 +1156,23 @@ class Emulator {
             opCMP(value, X);
             cycles = 2;
             break;
+        case 0xE4: // CPX Zero Page
+            readZeroPage(&addr);
+            value = read(addr);
+            opCMP(value, X);
+            cycles = 2;
+            break;
 
         case 0xC0: // CPY Immediate
             value = read(ProgramCounter);
             ProgramCounter++;
+            opCMP(value, Y);
+            cycles = 2;
+            break;
+
+        case 0xC4: // CPY Zero Page
+            readZeroPage(&addr);
+            value = read(addr);
             opCMP(value, Y);
             cycles = 2;
             break;

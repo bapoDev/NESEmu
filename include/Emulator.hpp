@@ -101,13 +101,12 @@ class Emulator {
     }
 
     void readIndirectIndexed(uint16_t *addr, uint8_t reg) {
-        *addr = read(ProgramCounter);
+        uint8_t zp = read(ProgramCounter);
         ProgramCounter++;
-        uint8_t temp = static_cast<uint8_t>(*addr);
-        *addr = read(ProgramCounter);
-        temp++;
-        *addr = static_cast<uint16_t>(read(temp) << 8 | *addr);
-        *addr += reg;
+        uint8_t lo = read(zp);
+        uint8_t hi = read(static_cast<uint8_t>(zp + 1));
+        *addr = static_cast<uint16_t>((static_cast<uint16_t>(hi) << 8) | lo);
+        *addr = static_cast<uint16_t>(*addr + reg);
     }
 
     void readIndexedIndirect(uint16_t *addr, uint8_t reg) {
@@ -176,11 +175,10 @@ class Emulator {
             cycles = 3;
             break;
         case 0xB5: // LDA Zero Page,X
-            read(&addr, X);
-            ProgramCounter++;
+            readZeroPageIndexed(&addr, X);
             A = read(addr);
             flagZN(&A);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0xAD: // LDA Absolute
             readAbsolute(&addr_abs);
@@ -216,20 +214,19 @@ class Emulator {
             break;
         case 0xB6: // LDX Zero Page,Y
             readZeroPageIndexed(&addr, Y);
-            ProgramCounter++;
             X = read(addr);
             flagZN(&X);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0xAE: // LDX Absolute
             readAbsolute(&addr_abs);
-            X = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
+            X = read(addr_abs);
             flagZN(&X);
             cycles = 4;
             break;
         case 0xBE: // LDX Absolute,Y
             readAbsoluteIndexed(&addr_abs, Y);
-            X = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
+            X = read(addr_abs);
             flagZN(&X);
             cycles = 4;
             break;
@@ -242,27 +239,25 @@ class Emulator {
             break;
         case 0xA4: // LDY Zero Page
             readZeroPage(&addr);
-            ProgramCounter++;
             Y = read(addr);
             flagZN(&Y);
             cycles = 3;
             break;
         case 0xB4: // LDY Zero Page,X
             readZeroPageIndexed(&addr, X);
-            ProgramCounter++;
             Y = read(addr);
             flagZN(&Y);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0xAC: // LDY Absolute
             readAbsolute(&addr_abs);
-            Y = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
+            Y = read(addr_abs);
             flagZN(&Y);
             cycles = 4;
             break;
         case 0xBC: // LDY Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
-            Y = read(static_cast<uint16_t>(addr_high * 256 + addr_low));
+            Y = read(addr_abs);
             flagZN(&Y);
             cycles = 4;
             break;
@@ -273,17 +268,13 @@ class Emulator {
 
         case 0x85: // STA Zero Page
             readZeroPage(&addr);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, A);
             cycles = 3;
             break;
         case 0x95: // STA Zero Page,X
             readZeroPageIndexed(&addr, X);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, A);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0x8D: // STA Absolute
             readAbsolute(&addr_abs);
@@ -303,17 +294,13 @@ class Emulator {
 
         case 0x86: // STX Zero Page
             readZeroPage(&addr);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, X);
             cycles = 3;
             break;
         case 0x96: // STX Zero Page,Y
             readZeroPageIndexed(&addr, Y);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, X);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0x8E: // STX Absolute
             readAbsolute(&addr_abs);
@@ -323,17 +310,13 @@ class Emulator {
 
         case 0x84: // STY Zero Page
             readZeroPage(&addr);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, Y);
             cycles = 3;
             break;
         case 0x94: // STY Zero Page,X
             readZeroPageIndexed(&addr, X);
-            value = read(addr);
-            ProgramCounter++;
             write(addr, Y);
-            cycles = 3;
+            cycles = 4;
             break;
         case 0x8C: // STY Absolute
             readAbsolute(&addr_abs);
@@ -577,42 +560,38 @@ class Emulator {
             break;
         case 0x0E: // ASL Absolute
             readAbsolute(&addr_abs);
-            addr = read(addr_abs);
-            flag_Carry = addr >= 0x80;
-            addr <<= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_abs, addr);
+            value = read(addr_abs);
+            flag_Carry = (value & 0x80) != 0;
+            value <<= 1;
+            write(addr_abs, value);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x1E: // ASL Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
-            addr = read(addr_abs);
-            flag_Carry = addr >= 0x80;
-            addr <<= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_abs, addr);
-            cycles = 6;
+            value = read(addr_abs);
+            flag_Carry = (value & 0x80) != 0;
+            value <<= 1;
+            write(addr_abs, value);
+            flagZN(&value);
+            cycles = 7;
             break;
         case 0x06: // ASL Zero Page
             readZeroPage(&addr_low);
-            addr_high = read(addr_low);
-            flag_Carry = addr >= 0x80;
-            addr_high <<= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_low, addr_high);
-            cycles = 6;
+            value = read(addr_low);
+            flag_Carry = (value & 0x80) != 0;
+            value <<= 1;
+            write(addr_low, value);
+            flagZN(&value);
+            cycles = 5;
             break;
         case 0x16: // ASL Zero Page,X
             readZeroPageIndexed(&addr_low, X);
-            addr_high = read(addr_low);
-            flag_Carry = addr >= 0x80;
-            addr_high <<= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_low, addr_high);
+            value = read(addr_low);
+            flag_Carry = (value & 0x80) != 0;
+            value <<= 1;
+            write(addr_low, value);
+            flagZN(&value);
             cycles = 6;
             break;
 
@@ -630,108 +609,101 @@ class Emulator {
             readZeroPage(&addr);
             value = read(addr);
             oldCarry = flag_Carry;
-            flag_Carry = value >= 0x80;
+            flag_Carry = (value & 0x80) != 0;
             value <<= 1;
             if (oldCarry) {
                 value |= 1;
             }
             write(addr, value);
-            flagZN(&A);
-            cycles = 6;
+            flagZN(&value);
+            cycles = 5;
             break;
         case 0x36: // ROL Zero Page,X
             readZeroPageIndexed(&addr, X);
             value = read(addr);
             oldCarry = flag_Carry;
-            flag_Carry = value >= 0x80;
+            flag_Carry = (value & 0x80) != 0;
             value <<= 1;
             if (oldCarry) {
                 value |= 1;
             }
             write(addr, value);
-            flagZN(&A);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x2E: // ROL Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);
             oldCarry = flag_Carry;
-            flag_Carry = value >= 0x80;
+            flag_Carry = (value & 0x80) != 0;
             value <<= 1;
             if (oldCarry) {
                 value |= 1;
             }
             write(addr_abs, value);
-            flagZN(&A);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x3E: // ROL Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
             oldCarry = flag_Carry;
-            flag_Carry = value >= 0x80;
+            flag_Carry = (value & 0x80) != 0;
             value <<= 1;
             if (oldCarry) {
                 value |= 1;
             }
             write(addr_abs, value);
-            flagZN(&A);
-            cycles = 6;
+            flagZN(&value);
+            cycles = 7;
             break;
 
         case 0x4A: // LSR - Logical Shift Right
-            flag_Carry = !(A % 2);
+            flag_Carry = (A & 0x01) != 0;
             A >>= 1;
-            flag_Zero = A == 0;
-            flag_Negative = A > 127;
+            flagZN(&A);
             cycles = 2;
             break;
         case 0x4E: // LSR Absolute
             readAbsolute(&addr_abs);
-            addr = read(addr_abs);
-            flag_Carry = !(addr % 2);
-            addr >>= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_abs, addr);
+            value = read(addr_abs);
+            flag_Carry = (value & 0x01) != 0;
+            value >>= 1;
+            write(addr_abs, value);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x5E: // LSR Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
-            addr = read(addr_abs);
-            flag_Carry = !(addr % 2);
-            addr >>= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_abs, addr);
-            cycles = 6;
+            value = read(addr_abs);
+            flag_Carry = (value & 0x01) != 0;
+            value >>= 1;
+            write(addr_abs, value);
+            flagZN(&value);
+            cycles = 7;
             break;
-        case 0x46:                   // LSR Zero Page
-            readZeroPage(&addr_low); // We use low and high to have two
-                                     // different addresses
-            addr_high = read(addr_low);
-            flag_Carry = !(addr % 2);
-            addr_high >>= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_low, addr_high);
-            cycles = 6;
+        case 0x46: // LSR Zero Page
+            readZeroPage(&addr_low);
+            value = read(addr_low);
+            flag_Carry = (value & 0x01) != 0;
+            value >>= 1;
+            write(addr_low, value);
+            flagZN(&value);
+            cycles = 5;
             break;
-        case 0x56:                             // LSR Zero Page,X
-            readZeroPageIndexed(&addr_low, X); // We use low and high to have
-                                               // two different addresses
-            addr_high = read(addr_low);
-            flag_Carry = !(addr % 2);
-            addr_high >>= 1;
-            flag_Zero = addr == 0;
-            flag_Negative = addr > 127;
-            write(addr_low, addr_high);
+        case 0x56: // LSR Zero Page,X
+            readZeroPageIndexed(&addr_low, X);
+            value = read(addr_low);
+            flag_Carry = (value & 0x01) != 0;
+            value >>= 1;
+            write(addr_low, value);
+            flagZN(&value);
             cycles = 6;
             break;
 
         case 0x6A: // ROR - ROtate Right (Accumulator)
             oldCarry = flag_Carry;
-            flag_Carry = !(A % 2);
+            flag_Carry = (A & 0x01) != 0;
             A >>= 1;
             if (oldCarry) {
                 A |= 0x80;
@@ -743,53 +715,53 @@ class Emulator {
             readZeroPage(&addr);
             value = read(addr);
             oldCarry = flag_Carry;
-            flag_Carry = !(value % 2);
+            flag_Carry = (value & 0x01) != 0;
             value >>= 1;
             if (oldCarry) {
                 value |= 0x80;
             }
             write(addr, value);
-            flagZN(&A);
-            cycles = 6;
+            flagZN(&value);
+            cycles = 5;
             break;
         case 0x76: // ROR Zero Page,X
             readZeroPageIndexed(&addr, X);
             value = read(addr);
             oldCarry = flag_Carry;
-            flag_Carry = !(value % 2);
+            flag_Carry = (value & 0x01) != 0;
             value >>= 1;
             if (oldCarry) {
                 value |= 0x80;
             }
             write(addr, value);
-            flagZN(&A);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x6E: // ROR Absolute
             readAbsolute(&addr_abs);
             value = read(addr_abs);
             oldCarry = flag_Carry;
-            flag_Carry = !(value % 2);
+            flag_Carry = (value & 0x01) != 0;
             value >>= 1;
             if (oldCarry) {
                 value |= 0x80;
             }
             write(addr_abs, value);
-            flagZN(&A);
+            flagZN(&value);
             cycles = 6;
             break;
         case 0x7E: // ROR Absolute,X
             readAbsoluteIndexed(&addr_abs, X);
             value = read(addr_abs);
             oldCarry = flag_Carry;
-            flag_Carry = !(value % 2);
+            flag_Carry = (value & 0x01) != 0;
             value >>= 1;
             if (oldCarry) {
                 value |= 0x80;
             }
             write(addr_abs, value);
-            flagZN(&A);
-            cycles = 6;
+            flagZN(&value);
+            cycles = 7;
             break;
 
             /*

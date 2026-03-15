@@ -1,5 +1,9 @@
 # NESEmu - A simple NES emulator
 
+> [!IMPORTANT]
+> Si un responsable de Master se retrouve sur ce repository, premièrement bienvenue à vous.
+> Je dois juste justifier la mauvaise conception de cet émulateur avec l'usage abusif de switch/case dans Emulator.hpp par le fait que je suive un guide presque à la lettre. Je compte effectuer un refactoring plus tard quand le CPU sera finalisé.
+
 ## The objective
 
 This project was created as a challenge to understand other architectures and reproduce their behavior up to a certain accuracy level. The main objective is to run Super Mario Bros. which is where the guide I follow stops. Then I'll try to run a maximum amount of games with other documentations I can find on the internet.
